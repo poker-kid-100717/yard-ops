@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "yard-ops",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-26",
+  "workers_dev": true,
+  "vars": {
+    "LTL_BASE_URL": ""
+  },
+  "assets": {
+    "directory": "../web/dist/web/browser",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/health", "/health/*"]
+  },
+  "containers": [
+    {
+      "class_name": "YardApi",
+      "image": "../api/Dockerfile",
+      "max_instances": 1,
+      "instance_type": "basic"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "API", "class_name": "YardApi" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["YardApi"] }
+  ],
+  "secrets": { "required": ["YARD_LTL_SIGNING_KEY"] },
+  "observability": { "enabled": true }
+}

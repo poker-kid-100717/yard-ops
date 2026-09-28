@@ -1,0 +1,28 @@
+# Yard Ops on its own. To exercise the Yard -> LTL integration, run the ltl-planner
+# repository's compose stack too (it publishes the LTL API on host port 5102) and use
+# the same YARD_LTL_SIGNING_KEY in both .env files.
+services:
+  yard-api:
+    build: ./api
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      Ltl__BaseUrl: ${LTL_BASE_URL:-http://host.docker.internal:5102/}
+      Ltl__SigningKey: ${YARD_LTL_SIGNING_KEY:-portfolio-dev-only-change-me}
+      Alvys__Mode: ${ALVYS_MODE:-Demo}
+      Alvys__ClientId: ${ALVYS_CLIENT_ID:-}
+      Alvys__ClientSecret: ${ALVYS_CLIENT_SECRET:-}
+      Alvys__TokenUrl: ${ALVYS_TOKEN_URL:-https://auth.alvys.com/oauth/token}
+      Alvys__Audience: ${ALVYS_AUDIENCE:-https://api.alvys.com/public/}
+      Alvys__ApiBaseUrl: ${ALVYS_API_BASE_URL:-https://integrations.alvys.com/api/p/}
+      Alvys__TrailerApiVersion: ${ALVYS_TRAILER_API_VERSION:-v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports: ["5103:8080"]
+
+  yard-web:
+    build:
+      context: ./web
+      args:
+        API_UPSTREAM: yard-api:8080
+    depends_on: [yard-api]
+    ports: ["4203:80"]
