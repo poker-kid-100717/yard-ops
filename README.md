@@ -6,16 +6,29 @@ A clean-room portfolio yard execution application: yard board, gate in/out, dock
 
 It is the standalone version of Yard Ops from [logistics-portfolio-suite](https://github.com/poker-kid-100717/logistics-portfolio-suite), and integrates with [ltl-planner](https://github.com/poker-kid-100717/ltl-planner) over a signed, versioned HTTP contract. It also runs on its own: without an LTL Planner the yard workflows still work and LTL features report that the planner is unavailable.
 
+## What it does
+
+A working yard management tool. Everything below reads and writes a real database.
+
+| Menu | Pages |
+| --- | --- |
+| **Overview** | Yard Board: every parking spot and dock door with the trailer in it, plus yard numbers |
+| **Operations** | Gate (check in/out, pre-advise expected trailers) · Trailers (list and a detail page to move, load, inspect, hold or release, with history and LTL candidates) · Inspections (checklist results) |
+| **Integration** | LTL Outbox (every event for LTL Planner and its delivery state) · TMS Trailers (read-only) |
+
+Settings sits at the bottom of the menu.
+
+Rules the API enforces: trailers move Expected → Arrived → At door → Loading → Ready → Departed, with holds from Arrived, At door or Loading; anything else is a 409 that says what the trailer can do next. A spot holds one trailer (a unique index enforces it). Every applicable checklist item must pass for a trailer to be Ready, and a failed inspection puts it on hold.
+
 ## Demonstrates
 
-- yard-board state and gate/dock workflows
-- Angular 22 tablet-friendly operations UI
-- .NET 10 minimal API
+- a transactional outbox: each event for LTL Planner is written in the same database transaction as the yard change that caused it, then delivered with an HMAC-SHA256 signature and bounded exponential backoff; yard work never waits on LTL
+- the Yard -> LTL v1 contract, unchanged: the same signed payload and header LTL Planner already verifies, and synchronous candidate lookup
+- .NET 10 minimal API with EF Core 10 on PostgreSQL (migrations applied at startup), ProblemDetails validation, and 409s for rule violations
+- Angular 22 routed app: lazy-loaded pages, signals, one accessible drawer for every form, light and dark themes, tablet and phone layouts
+- public-demo safeguards: per-client write rate limits, body size limits, a daily reset and an hourly outbox pass from Cloudflare cron triggers
 - optional read-only Alvys Trailers Search through an OAuth 2.0 client-credentials adapter
-- synchronous Yard -> LTL candidate lookup
-- asynchronous Yard -> LTL integration events with HMAC-SHA256 payload signatures
-- an outbox with bounded exponential backoff, so local yard actions never depend on LTL being up
-- Cloudflare Workers + Containers hosting deployed from GitHub Actions
+- integration tests against both SQLite and PostgreSQL in CI, with a fake LTL endpoint that checks the exact signed payload
 
 See [docs/architecture.md](docs/architecture.md).
 
@@ -25,6 +38,8 @@ See [docs/architecture.md](docs/architecture.md).
 cp .env.example .env
 docker compose up --build
 ```
+
+Compose starts PostgreSQL too; the API applies migrations and seeds a fictional yard on first start.
 
 - UI: http://localhost:4203
 - API: http://localhost:5103 (health at `/health`)
@@ -43,7 +58,8 @@ Demo mode is the default and needs no credentials. To enable live, read-only Alv
 ## Tests
 
 ```bash
-dotnet test tests/Portfolio.Yard.Api.Tests.csproj
+dotnet test tests/Portfolio.Yard.Api.Tests.csproj                                    # SQLite
+TEST_DATABASE_URL=postgres://user:pass@localhost:5432/yard_test dotnet test tests/Portfolio.Yard.Api.Tests.csproj  # PostgreSQL
 ```
 
 ## Deploy to Cloudflare
@@ -56,6 +72,8 @@ Repository **secrets**:
 | --- | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | yes | Wrangler deploys |
 | `CLOUDFLARE_ACCOUNT_ID` | yes | Wrangler deploys |
+| `DATABASE_URL` | recommended | PostgreSQL URL, for example a Neon pooled URL ending in `?sslmode=require`. Without it the app runs on a demo database that resets whenever the container restarts. |
+| `DEMO_RESET_TOKEN` | recommended | Any random string. Enables the daily reset of the demo yard (08:29 UTC). |
 | `YARD_LTL_SIGNING_KEY` | recommended | Signs events sent to LTL. Must equal the key in the ltl-planner repo. Generated per deploy when absent. |
 | `ALVYS_CLIENT_ID` / `ALVYS_CLIENT_SECRET` | no | Live, read-only Alvys mode |
 
@@ -71,8 +89,8 @@ Deploy LTL Planner first so Yard's smoke test can reach it. Until the Cloudflare
 ## Repository structure
 
 ```text
-api/          .NET 10 API (yard state, outbox, LTL client, Alvys adapter)
-tests/        xUnit tests for the yard store, outbox, and signatures
+api/          .NET 10 API: Data/ (EF Core model, migrations, demo seed), Endpoints/, trailer rules, outbox, LTL client, Alvys adapter
+tests/        xUnit unit and integration tests
 web/          Angular 22 UI
 cloudflare/   Worker + Container definition for Cloudflare hosting
 scripts/      deploy and publication-safety scripts

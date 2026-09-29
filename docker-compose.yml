@@ -2,10 +2,27 @@
 # repository's compose stack too (it publishes the LTL API on host port 5102) and use
 # the same YARD_LTL_SIGNING_KEY in both .env files.
 services:
+  yard-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: yard
+      POSTGRES_USER: yard
+      POSTGRES_PASSWORD: yard-local-only
+    volumes: [yard-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yard -d yard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   yard-api:
     build: ./api
+    depends_on:
+      yard-db: { condition: service_healthy }
     environment:
       ASPNETCORE_URLS: http://+:8080
+      DATABASE_URL: ${DATABASE_URL:-postgres://yard:yard-local-only@yard-db:5432/yard}
+      Demo__ResetToken: ${DEMO_RESET_TOKEN:-}
       Ltl__BaseUrl: ${LTL_BASE_URL:-http://host.docker.internal:5102/}
       Ltl__SigningKey: ${YARD_LTL_SIGNING_KEY:-portfolio-dev-only-change-me}
       Alvys__Mode: ${ALVYS_MODE:-Demo}
@@ -26,3 +43,6 @@ services:
         API_UPSTREAM: yard-api:8080
     depends_on: [yard-api]
     ports: ["4203:80"]
+
+volumes:
+  yard-data:
