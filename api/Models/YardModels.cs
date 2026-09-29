@@ -9,10 +9,19 @@ public sealed record YardAsset(
     string? CurrentLoadNumber,
     DateTimeOffset UpdatedAt);
 
-public sealed record GateRequest(string TrailerNumber, string Direction, string? Note);
+/// <summary>Gate in or out. For a trailer the yard has not seen, gate-in also takes its equipment and capacity.</summary>
+public sealed record GateRequest(string TrailerNumber, string Direction, string? Note,
+    string? Equipment = null, int? PalletCapacity = null, string? Spot = null, string? LoadNumber = null, string? Carrier = null);
 public sealed record GateEvent(Guid Id, string TrailerNumber, string Direction, DateTimeOffset OccurredAt, string? Note);
-public sealed record InspectionRequest(string TrailerNumber, bool Passed, string? Notes);
-public sealed record InspectionRecord(Guid Id, string TrailerNumber, bool Passed, DateTimeOffset OccurredAt, string? Notes);
+
+/// <summary>
+/// A dock inspection. When the checklist is supplied, Passed is derived from it (every applicable item must pass);
+/// older clients can still send Passed alone.
+/// </summary>
+public sealed record InspectionRequest(string TrailerNumber, bool Passed, string? Notes,
+    bool? Tires = null, bool? Lights = null, bool? DoorsAndSeal = null, bool? Floor = null, bool? ReeferUnit = null);
+public sealed record InspectionRecord(Guid Id, string TrailerNumber, bool Passed, DateTimeOffset OccurredAt, string? Notes,
+    bool? Tires = null, bool? Lights = null, bool? DoorsAndSeal = null, bool? Floor = null, bool? ReeferUnit = null);
 
 public sealed record YardIntegrationEvent(
     Guid EventId,

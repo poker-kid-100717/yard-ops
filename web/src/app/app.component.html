@@ -1,74 +1,73 @@
-<main class="page">
-  <header class="hero shell">
-    <div>
-      <span class="eyebrow">LOGISTICS PORTFOLIO / APP 03</span>
-      <h1>Yard Ops</h1>
-      <p>Physical yard state, gate/dock execution, and a deliberate service boundary to the LTL Planner.</p>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="app" [class.collapsed]="collapsed()" [class.nav-open]="mobileOpen()">
+  <nav class="sidebar" aria-label="Main">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">YO</span>
+      <span class="brand-name">Yard Ops</span>
+      <button type="button" class="icon-button close-nav" (click)="mobileOpen.set(false)" aria-label="Close menu"><app-icon name="close" /></button>
     </div>
-    <div class="integration-badge"><i></i><span>Yard -> LTL integration enabled</span></div>
-  </header>
 
-  <section class="shell board-head">
-    <div><span class="eyebrow">LIVE DEMO STATE</span><h2>Yard board</h2></div>
-    <div class="legend"><span>Expected</span><span>Arrived</span><span>Loading</span><span>Ready</span></div>
-  </section>
-
-  <section class="shell asset-grid">
-    @for (asset of assets(); track asset.trailerNumber) {
-      <article class="asset-card" [attr.data-status]="asset.status">
-        <div class="asset-top"><strong>{{ asset.trailerNumber }}</strong><span>{{ asset.status }}</span></div>
-        <div class="spot">{{ asset.spot }}</div>
-        <dl>
-          <div><dt>Equipment</dt><dd>{{ asset.equipment }}</dd></div>
-          <div><dt>Capacity</dt><dd>{{ asset.palletCapacity }} pallets</dd></div>
-          <div><dt>Load</dt><dd>{{ asset.currentLoadNumber || 'Open' }}</dd></div>
-        </dl>
-        <div class="actions">
-          <button class="primary" (click)="showCandidates(asset)">LTL candidates</button>
-          <button (click)="markReady(asset)">Mark ready</button>
-          <button class="quiet" (click)="gate(asset, 'In')">Gate in</button>
-          <button class="quiet" (click)="gate(asset, 'Out')">Gate out</button>
-        </div>
-      </article>
-    }
-  </section>
-
-  <section class="shell lower-grid">
-    <article class="panel candidates-panel">
-      <div class="panel-head">
-        <div><span class="eyebrow">SYNC REQUEST / RESPONSE</span><h2>LTL planning candidates</h2></div>
-        <span>{{ selectedTrailer() || 'Choose a trailer' }}</span>
+    @for (group of groups; track group.label) {
+      <div class="nav-group">
+        <h2 class="nav-heading">{{ group.label }}</h2>
+        <ul>
+          @for (item of group.items; track item.path) {
+            <li>
+              <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: !!item.exact }" ariaCurrentWhenActive="page"
+                 [attr.title]="collapsed() ? item.label : null" (click)="mobileOpen.set(false)">
+                <app-icon [name]="item.icon" /><span class="nav-label">{{ item.label }}</span>
+              </a>
+            </li>
+          }
+        </ul>
       </div>
-      <p>Yard sends only the trailer identity, declared equipment, and pallet capacity to LTL. LTL owns order prioritization and planning rules.</p>
-      @if (integrationError()) { <div class="warning">{{ integrationError() }}</div> }
-      @if (selectedTrailer() && candidates().length === 0 && !integrationError()) { <div class="empty">No compatible candidates returned.</div> }
-      @for (candidate of candidates(); track candidate.orderId) {
-        <div class="candidate">
-          <div><strong>{{ candidate.orderId }}</strong><span>{{ candidate.customer }}</span></div>
-          <p>{{ candidate.origin }} -> {{ candidate.destination }}</p>
-          <small>{{ candidate.pallets }} pallets · {{ candidate.reason }}</small>
-        </div>
-      }
-    </article>
+    }
 
-    <article class="panel outbox-panel">
-      <div class="panel-head"><div><span class="eyebrow">ASYNC DELIVERY</span><h2>Yard -> LTL outbox</h2></div><button class="refresh" (click)="refresh()">Refresh</button></div>
-      <p>State changes commit locally first. Delivery retries independently and LTL deduplicates by event ID.</p>
-      @for (message of outbox(); track message.id) {
-        <div class="message">
-          <div><strong>{{ message.event.eventType }}</strong><span [class.sent]="message.sentAt">{{ message.sentAt ? 'Delivered' : 'Pending' }}</span></div>
-          <small>{{ message.event.trailerNumber }} · attempts {{ message.attempts }}</small>
-        </div>
-      }
-      @if (outbox().length === 0) { <div class="empty">No events yet. Mark a trailer Ready to create one.</div> }
-    </article>
-  </section>
+    <div class="nav-footer">
+      <a routerLink="/settings" routerLinkActive="active" ariaCurrentWhenActive="page" [attr.title]="collapsed() ? 'Settings' : null"
+         (click)="mobileOpen.set(false)">
+        <app-icon name="settings" /><span class="nav-label">Settings</span>
+      </a>
+      <button type="button" class="collapse-toggle" (click)="toggleCollapsed()" [attr.aria-label]="collapsed() ? 'Expand menu' : 'Collapse menu'"
+              [attr.aria-expanded]="!collapsed()">
+        <app-icon [name]="collapsed() ? 'expand' : 'collapse'" /><span class="nav-label">Collapse</span>
+      </button>
+    </div>
+  </nav>
+  <div class="scrim" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
 
-  @if (external(); as vendor) {
-    <section class="shell vendor">
-      <div><span class="eyebrow">PUBLIC THIRD-PARTY API</span><h2>{{ vendor.live ? 'Live Alvys trailer read' : 'Synthetic trailer provider' }}</h2></div>
-      <p>{{ vendor.provider }} · {{ vendor.trailers.length }} records. Credentials remain server-side; the Yard SPA sees only normalized DTOs.</p>
-      @if (vendor.degraded) { <div class="warning">{{ vendor.degradedReason }}</div> }
-    </section>
-  }
-</main>
+  <div class="workspace">
+    <header class="topbar">
+      <button type="button" class="icon-button open-nav" (click)="mobileOpen.set(true)" aria-label="Open menu"><app-icon name="menu" /></button>
+      <span class="topbar-title">Yard execution</span>
+      <div class="topbar-actions">
+        <button type="button" class="ghost" (click)="create('gate-in')">Gate in</button>
+        <div class="new-menu">
+          <button type="button" class="primary" (click)="newOpen.set(!newOpen())" aria-haspopup="menu" [attr.aria-expanded]="newOpen()">
+            <app-icon name="plus" /><span class="new-label">New</span>
+          </button>
+          @if (newOpen()) {
+            <ul class="menu" role="menu">
+              <li role="none"><button type="button" role="menuitem" (click)="create('gate-in')">Gate in</button></li>
+              <li role="none"><button type="button" role="menuitem" (click)="create('gate-out')">Gate out</button></li>
+              <li role="none"><button type="button" role="menuitem" (click)="create('expected')">Expected trailer</button></li>
+            </ul>
+          }
+        </div>
+      </div>
+    </header>
+
+    <div class="demo-note" role="note">
+      Public demo with fictional data.
+      @if (session.meta(); as meta) {
+        @if (meta.storage.persistent) { Changes are saved and reset daily. } @else { Changes reset when the server restarts. }
+      }
+    </div>
+    @if (session.metaError()) { <div class="alert page-alert" role="alert">{{ session.metaError() }}</div> }
+
+    <main id="main" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+<app-form-drawer />

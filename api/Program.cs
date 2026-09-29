@@ -1,20 +1,32 @@
+using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Http.Resilience;
+using Portfolio.Yard.Api.Data;
+using Portfolio.Yard.Api.Endpoints;
 using Portfolio.Yard.Api.Integrations.Alvys;
 using Portfolio.Yard.Api.Integrations.Ltl;
 using Portfolio.Yard.Api.Models;
-using Portfolio.Yard.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 64 * 1024);
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<DatabaseExceptionHandler>();
+builder.Services.AddSingleton(TimeProvider.System);
+
+builder.Services.AddYardDatabase(builder.Configuration);
+builder.Services.AddSingleton<DemoSeeder>();
+builder.Services.AddSingleton<DatabaseGate>();
+
 builder.Services.Configure<LtlOptions>(builder.Configuration.GetSection(LtlOptions.Section));
 builder.Services.Configure<AlvysOptions>(builder.Configuration.GetSection(AlvysOptions.Section));
-builder.Services.AddSingleton<YardStore>();
-builder.Services.AddSingleton<OutboxStore>();
 builder.Services.AddSingleton<AlvysTokenProvider>();
 builder.Services.AddSingleton<IExternalTrailerReader, AlvysTrailerReader>();
-builder.Services.AddHostedService<OutboxDispatcher>();
+builder.Services.AddSingleton<OutboxSignal>();
+builder.Services.AddScoped<OutboxDelivery>();
+if (builder.Configuration.GetValue("Outbox:DispatcherEnabled", true))
+    builder.Services.AddHostedService<OutboxDispatcher>();
 
 builder.Services.AddHttpClient<LtlClient>((sp, client) =>
 {
@@ -41,51 +53,55 @@ builder.Services.AddHttpClient(AlvysTrailerReader.ApiClient)
         options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
     });
 
+// Anonymous public demo: limit writes per client (Cloudflare supplies the caller's IP).
+var writesPerMinute = builder.Configuration.GetValue("RateLimiting:WritesPerMinute", 30);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
+            return RateLimitPartition.GetNoLimiter("reads");
+        var client = context.Request.Headers["CF-Connecting-IP"].FirstOrDefault()
+                     ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(client, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = writesPerMinute,
+            Window = TimeSpan.FromMinutes(1)
+        });
+    });
+});
+
 var app = builder.Build();
 app.UseExceptionHandler();
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment()) app.MapOpenApi();
 
+await Database.InitializeAsync(app.Services);
+
 app.MapGet("/health", () => Results.Ok(new { status = "Healthy", service = "yard-ops" }));
-app.MapGet("/api/assets", (YardStore store) => Results.Ok(store.Assets.OrderBy(x => x.Spot)));
-app.MapGet("/api/gate/history", (YardStore store) => Results.Ok(store.GateEvents.OrderByDescending(x => x.OccurredAt)));
-app.MapGet("/api/inspections", (YardStore store) => Results.Ok(store.Inspections.OrderByDescending(x => x.OccurredAt)));
-app.MapGet("/api/outbox", (OutboxStore store) => Results.Ok(store.Messages.OrderByDescending(x => x.CreatedAt)));
-
-app.MapPost("/api/gate", (GateRequest request, YardStore store, OutboxStore outbox) =>
+app.MapGet("/health/ready", async (DatabaseGate gate, DatabaseStatus database, CancellationToken ct) =>
 {
-    if (!store.TryGetAsset(request.TrailerNumber, out var asset)) return Results.NotFound();
-    var direction = request.Direction.Equals("Out", StringComparison.OrdinalIgnoreCase) ? "Out" : "In";
-    var nextStatus = direction == "In" ? "Arrived" : "Departed";
-    store.UpdateAsset(asset with { Status = nextStatus, UpdatedAt = DateTimeOffset.UtcNow });
-    var gate = store.AddGate(new(Guid.NewGuid(), asset.TrailerNumber, direction, DateTimeOffset.UtcNow, request.Note));
-
-    outbox.Enqueue(new(Guid.NewGuid(), $"TrailerGate{direction}", asset.TrailerNumber, gate.OccurredAt,
-        string.IsNullOrWhiteSpace(request.Note) ? $"Gate {direction.ToLowerInvariant()} recorded." : request.Note));
-    return Results.Ok(gate);
+    var ready = await gate.EnsureReadyAsync(ct);
+    var body = new { status = ready ? "Ready" : "Degraded", database = new { database.Mode, database.Ready, database.Error } };
+    return ready ? Results.Ok(body) : Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable);
 });
 
-app.MapPost("/api/inspections", (InspectionRequest request, YardStore store, OutboxStore outbox) =>
-{
-    if (!store.TryGetAsset(request.TrailerNumber, out var asset)) return Results.NotFound();
-    var record = store.AddInspection(new(Guid.NewGuid(), asset.TrailerNumber, request.Passed, DateTimeOffset.UtcNow, request.Notes));
-    if (request.Passed)
-    {
-        store.UpdateAsset(asset with { Status = "Ready", UpdatedAt = DateTimeOffset.UtcNow });
-        outbox.Enqueue(new(Guid.NewGuid(), "TrailerReadyForPlanning", asset.TrailerNumber, record.OccurredAt,
-            "Dock inspection passed; trailer is ready for LTL planning."));
-    }
-    return Results.Ok(record);
-});
+var api = app.MapGroup("/api");
+api.MapPlatformEndpoints();
 
-app.MapGet("/api/ltl/candidates/{trailerNumber}", async (
-    string trailerNumber,
-    YardStore store,
-    LtlClient ltl,
-    CancellationToken ct) =>
+var data = api.MapGroup("").AddEndpointFilter(DatabaseGate.Filter);
+data.MapYardEndpoints();
+
+data.MapGet("/ltl/candidates/{trailerNumber}", async (string trailerNumber, YardDbContext db, LtlClient ltl, CancellationToken ct) =>
 {
-    if (!store.TryGetAsset(trailerNumber, out var asset)) return Results.NotFound();
+    var number = trailerNumber.Trim().ToUpperInvariant();
+    var trailer = await db.Trailers.AsNoTracking().SingleOrDefaultAsync(t => t.TrailerNumber == number, ct);
+    if (trailer is null) return Results.NotFound();
     try
     {
+        var asset = new YardAsset(trailer.TrailerNumber, trailer.Equipment, trailer.PalletCapacity, trailer.Status,
+            trailer.SpotCode ?? "", trailer.CurrentLoadNumber, YardEndpoints.Utc(trailer.UpdatedAt));
         return Results.Ok(await ltl.GetCandidatesAsync(asset, ct));
     }
     catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -94,7 +110,9 @@ app.MapGet("/api/ltl/candidates/{trailerNumber}", async (
     }
 });
 
-app.MapGet("/api/alvys/trailers", async (IExternalTrailerReader trailers, CancellationToken ct) =>
+api.MapGet("/alvys/trailers", async (IExternalTrailerReader trailers, CancellationToken ct) =>
     Results.Ok(await trailers.GetTrailersAsync(ct)));
 
 app.Run();
+
+public partial class Program;

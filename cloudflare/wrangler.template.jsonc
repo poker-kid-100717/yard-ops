@@ -30,5 +30,6 @@
     { "tag": "v1", "new_sqlite_classes": ["YardApi"] }
   ],
   "secrets": { "required": ["YARD_LTL_SIGNING_KEY"] },
+  "triggers": { "crons": ["29 8 * * *", "7 * * * *"] },
   "observability": { "enabled": true }
 }
