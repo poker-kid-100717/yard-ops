@@ -24,11 +24,11 @@ Rules the API enforces: trailers move Expected → Arrived → At door → Loadi
 
 - a transactional outbox: each event for LTL Planner is written in the same database transaction as the yard change that caused it, then delivered with an HMAC-SHA256 signature and bounded exponential backoff; yard work never waits on LTL
 - the Yard -> LTL v1 contract, unchanged: the same signed payload and header LTL Planner already verifies, and synchronous candidate lookup
-- .NET 10 minimal API with EF Core 10 on PostgreSQL (migrations applied at startup), ProblemDetails validation, and 409s for rule violations
+- .NET 10 minimal API with EF Core 10 on SQL Server (migrations applied at startup), ProblemDetails validation, and 409s for rule violations
 - Angular 22 routed app: lazy-loaded pages, signals, one accessible drawer for every form, light and dark themes, tablet and phone layouts
 - public-demo safeguards: per-client write rate limits, body size limits, a daily reset and an hourly outbox pass from Cloudflare cron triggers
 - optional read-only Alvys Trailers Search through an OAuth 2.0 client-credentials adapter
-- integration tests against both SQLite and PostgreSQL in CI, with a fake LTL endpoint that checks the exact signed payload
+- integration tests against both SQLite and SQL Server in CI, with a fake LTL endpoint that checks the exact signed payload
 
 See [docs/architecture.md](docs/architecture.md).
 
@@ -39,7 +39,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Compose starts PostgreSQL too; the API applies migrations and seeds a fictional yard on first start.
+Compose starts SQL Server 2022 too; the API applies migrations and seeds a fictional yard on first start.
 
 - UI: http://localhost:4203
 - API: http://localhost:5103 (health at `/health`)
@@ -59,7 +59,7 @@ Demo mode is the default and needs no credentials. To enable live, read-only Alv
 
 ```bash
 dotnet test tests/Portfolio.Yard.Api.Tests.csproj                                    # SQLite
-TEST_DATABASE_URL=postgres://user:pass@localhost:5432/yard_test dotnet test tests/Portfolio.Yard.Api.Tests.csproj  # PostgreSQL
+TEST_DATABASE_URL='Server=localhost,1433;Database=yard_test;User Id=sa;Password=...;TrustServerCertificate=True' dotnet test tests/Portfolio.Yard.Api.Tests.csproj  # SQL Server
 ```
 
 ## Deploy to Cloudflare
@@ -72,7 +72,7 @@ Repository **secrets**:
 | --- | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | yes | Wrangler deploys |
 | `CLOUDFLARE_ACCOUNT_ID` | yes | Wrangler deploys |
-| `DATABASE_URL` | recommended | PostgreSQL URL, for example a Neon pooled URL ending in `?sslmode=require`. Without it the app runs on a demo database that resets whenever the container restarts. |
+| `DATABASE_URL` | recommended | SQL Server connection string, for example Azure SQL Database: `Server=tcp:<server>.database.windows.net,1433;Database=yard;User ID=...;Password=...;Encrypt=True`. Without it the app runs on a demo database that resets whenever the container restarts. |
 | `DEMO_RESET_TOKEN` | recommended | Any random string. Enables the daily reset of the demo yard (08:29 UTC). |
 | `YARD_LTL_SIGNING_KEY` | recommended | Signs events sent to LTL. Must equal the key in the ltl-planner repo. Generated per deploy when absent. |
 | `ALVYS_CLIENT_ID` / `ALVYS_CLIENT_SECRET` | no | Live, read-only Alvys mode |

@@ -9,8 +9,9 @@
 #   LTL_BASE_URL          LTL Planner base URL (for example https://ltl.example.com/). When
 #                         empty, Yard runs on its own and LTL features report unavailable.
 #   YARD_LTL_SIGNING_KEY  shared HMAC key; must match the LTL Planner deployment.
-#   DATABASE_URL          PostgreSQL URL (for example a Neon pooled URL with sslmode=require). When
-#                         empty the API runs on a throwaway demo database that resets on restart.
+#   DATABASE_URL          SQL Server connection string, for example Azure SQL Database:
+#                         Server=tcp:<server>.database.windows.net,1433;Database=yard;User ID=<user>;Password=<password>;Encrypt=True
+#                         When empty the API runs on a throwaway demo database that resets on restart.
 #   DEMO_RESET_TOKEN      enables the daily demo-data reset (and POST /api/admin/reset-demo).
 #                         A per-deployment key is generated when empty.
 #   ALVYS_CLIENT_ID / ALVYS_CLIENT_SECRET  enable live, read-only Alvys mode.

@@ -3,7 +3,7 @@
 ```mermaid
 flowchart LR
   WEB[Angular 22 UI] --> API[Yard Ops .NET 10 API]
-  API --> DB[(PostgreSQL)]
+  API --> DB[(SQL Server)]
   API -->|read-only trailers| ALVYS[Alvys Public API]
   API -->|GET planning candidates| LTL[LTL Planner API]
   API -->|signed outbox event| LTL
@@ -15,7 +15,7 @@ Yard Ops owns physical yard state, gate/dock actions, and inspection readiness. 
 
 ## Data model
 
-Spots (parking and dock doors), trailers, gate events, moves, inspections and the outbox, in one EF Core context (`api/Data`). Migrations target PostgreSQL and are applied at startup; without `DATABASE_URL` the API creates a throwaway SQLite database from the same model. A unique index on the trailer's spot means two trailers can never occupy one spot.
+Spots (parking and dock doors), trailers, gate events, moves, inspections and the outbox, in one EF Core context (`api/Data`). Migrations target SQL Server and are applied at startup; without `DATABASE_URL` the API creates a throwaway SQLite database from the same model. A unique index on the trailer's spot means two trailers can never occupy one spot.
 
 ## Trailer lifecycle
 

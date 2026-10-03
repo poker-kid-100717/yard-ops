@@ -1,6 +1,6 @@
 namespace Portfolio.Yard.Api.Data;
 
-// Persistence entities. Timestamps are UTC DateTime so PostgreSQL and the SQLite demo store
+// Persistence entities. Timestamps are UTC DateTime so SQL Server and the SQLite demo store
 // can both sort and filter on them in the database.
 
 public sealed class YardSpot

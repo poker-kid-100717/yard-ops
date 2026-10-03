@@ -1,6 +1,5 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace Portfolio.Yard.Api.Data;
 
@@ -10,17 +9,18 @@ public sealed class DatabaseStatus
     public required string Mode { get; init; }
     public bool Ready { get; set; }
     public string? Error { get; set; }
-    public bool Persistent => Mode == Database.PostgresMode;
+    public bool Persistent => Mode == Database.SqlServerMode;
 }
 
 public static class Database
 {
-    public const string PostgresMode = "PostgreSQL";
+    public const string SqlServerMode = "SQL Server";
     public const string DemoMode = "Demo (SQLite, resets on restart)";
 
     /// <summary>
-    /// PostgreSQL when ConnectionStrings:Default or DATABASE_URL is set (a Neon URL works as-is);
-    /// otherwise a throwaway SQLite file so the demo runs with no database configured.
+    /// SQL Server when ConnectionStrings:Default or DATABASE_URL is set (for example an Azure SQL
+    /// Database connection string); otherwise a throwaway SQLite file so the demo runs with no
+    /// database configured.
     /// </summary>
     public static DatabaseStatus AddYardDatabase(this IServiceCollection services, IConfiguration config)
     {
@@ -29,10 +29,9 @@ public static class Database
 
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            var connectionString = ToNpgsql(configured);
             // No retrying execution strategy: several writes use explicit transactions.
-            services.AddDbContext<YardDbContext>(o => o.UseNpgsql(connectionString));
-            return Register(services, new DatabaseStatus { Mode = PostgresMode });
+            services.AddDbContext<YardDbContext>(o => o.UseSqlServer(configured));
+            return Register(services, new DatabaseStatus { Mode = SqlServerMode });
         }
 
         var path = config["Demo:SqlitePath"] ?? Path.Combine(Path.GetTempPath(), "yard-ops-demo.db");
@@ -44,45 +43,6 @@ public static class Database
     {
         services.AddSingleton(status);
         return status;
-    }
-
-    /// <summary>Accepts either an Npgsql connection string or a postgres:// URL.</summary>
-    public static string ToNpgsql(string value)
-    {
-        if (!value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
-            !value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
-        {
-            return value;
-        }
-
-        var uri = new Uri(value);
-        var user = uri.UserInfo.Split(':', 2);
-        var builder = new NpgsqlConnectionStringBuilder
-        {
-            Host = uri.Host,
-            Port = uri.IsDefaultPort || uri.Port <= 0 ? 5432 : uri.Port,
-            Database = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')),
-            Username = Uri.UnescapeDataString(user[0]),
-            Password = user.Length > 1 ? Uri.UnescapeDataString(user[1]) : null
-        };
-
-        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var parts = pair.Split('=', 2);
-            var key = Uri.UnescapeDataString(parts[0]).ToLowerInvariant();
-            var setting = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : "";
-            switch (key)
-            {
-                case "sslmode":
-                    builder.SslMode = Enum.Parse<SslMode>(setting.Replace("-", ""), ignoreCase: true);
-                    break;
-                case "channel_binding":
-                    builder.ChannelBinding = Enum.Parse<ChannelBinding>(setting, ignoreCase: true);
-                    break;
-            }
-        }
-
-        return builder.ConnectionString;
     }
 
     /// <summary>

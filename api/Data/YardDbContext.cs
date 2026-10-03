@@ -76,11 +76,11 @@ public sealed class YardDbContext(DbContextOptions<YardDbContext> options) : DbC
     }
 }
 
-/// <summary>Used by `dotnet ef migrations add`; migrations target PostgreSQL.</summary>
+/// <summary>Used by `dotnet ef migrations add`; migrations target SQL Server.</summary>
 public sealed class DesignTimeFactory : IDesignTimeDbContextFactory<YardDbContext>
 {
     public YardDbContext CreateDbContext(string[] args) =>
         new(new DbContextOptionsBuilder<YardDbContext>()
-            .UseNpgsql("Host=localhost;Database=yard;Username=yard;Password=design-time")
+            .UseSqlServer("Server=localhost;Database=yard;User Id=sa;Password=design-time;TrustServerCertificate=True")
             .Options);
 }

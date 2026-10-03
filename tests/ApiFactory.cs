@@ -13,7 +13,7 @@ namespace Portfolio.Yard.Api.Tests;
 
 /// <summary>
 /// Runs the real API. Uses a throwaway SQLite file by default; set TEST_DATABASE_URL to run the
-/// same tests against PostgreSQL (CI does both). Each factory starts from freshly seeded data.
+/// same tests against SQL Server (CI does both). Each factory starts from freshly seeded data.
 /// </summary>
 public class ApiFactory : WebApplicationFactory<Program>
 {
@@ -36,8 +36,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         // Deliveries go to a fake LTL Planner that records exactly what Yard sends.
         builder.ConfigureTestServices(services =>
             services.AddHttpClient<LtlClient>().ConfigurePrimaryHttpMessageHandler(() => Ltl));
-        var postgres = Environment.GetEnvironmentVariable("TEST_DATABASE_URL");
-        if (!string.IsNullOrWhiteSpace(postgres)) builder.UseSetting("ConnectionStrings:Default", postgres);
+        var sqlServer = Environment.GetEnvironmentVariable("TEST_DATABASE_URL");
+        if (!string.IsNullOrWhiteSpace(sqlServer)) builder.UseSetting("ConnectionStrings:Default", sqlServer);
     }
 
     public async Task ResetAsync()

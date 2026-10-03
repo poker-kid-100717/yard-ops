@@ -15,11 +15,11 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "GateEvents",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TrailerNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    Direction = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
-                    OccurredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Note = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TrailerNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Direction = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -30,16 +30,16 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "Inspections",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TrailerNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    Passed = table.Column<bool>(type: "boolean", nullable: false),
-                    Tires = table.Column<bool>(type: "boolean", nullable: false),
-                    Lights = table.Column<bool>(type: "boolean", nullable: false),
-                    DoorsAndSeal = table.Column<bool>(type: "boolean", nullable: false),
-                    Floor = table.Column<bool>(type: "boolean", nullable: false),
-                    ReeferUnit = table.Column<bool>(type: "boolean", nullable: true),
-                    OccurredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TrailerNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Passed = table.Column<bool>(type: "bit", nullable: false),
+                    Tires = table.Column<bool>(type: "bit", nullable: false),
+                    Lights = table.Column<bool>(type: "bit", nullable: false),
+                    DoorsAndSeal = table.Column<bool>(type: "bit", nullable: false),
+                    Floor = table.Column<bool>(type: "bit", nullable: false),
+                    ReeferUnit = table.Column<bool>(type: "bit", nullable: true),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -50,11 +50,11 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "Moves",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TrailerNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    FromSpot = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    ToSpot = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    OccurredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TrailerNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FromSpot = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    ToSpot = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -65,16 +65,16 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "Outbox",
                 columns: table => new
                 {
-                    EventId = table.Column<Guid>(type: "uuid", nullable: false),
-                    EventType = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
-                    TrailerNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    OccurredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Details = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Attempts = table.Column<int>(type: "integer", nullable: false),
-                    NextAttemptAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    SentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    LastError = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EventType = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    TrailerNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    OccurredAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Details = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Attempts = table.Column<int>(type: "int", nullable: false),
+                    NextAttemptAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastError = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -85,9 +85,9 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "Spots",
                 columns: table => new
                 {
-                    Code = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    Kind = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    Position = table.Column<int>(type: "integer", nullable: false)
+                    Code = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Position = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -98,15 +98,15 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "Trailers",
                 columns: table => new
                 {
-                    TrailerNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    Equipment = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    PalletCapacity = table.Column<int>(type: "integer", nullable: false),
-                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    SpotCode = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    CurrentLoadNumber = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    Carrier = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
-                    HoldReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    TrailerNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Equipment = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    PalletCapacity = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    SpotCode = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    CurrentLoadNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    Carrier = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: true),
+                    HoldReason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -153,7 +153,8 @@ namespace Portfolio.Yard.Api.Data.Migrations
                 name: "IX_Trailers_SpotCode",
                 table: "Trailers",
                 column: "SpotCode",
-                unique: true);
+                unique: true,
+                filter: "[SpotCode] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Trailers_Status",
