@@ -91,7 +91,7 @@ public abstract class ApiTest : IClassFixture<ApiFactory>, IAsyncLifetime
 /// <summary>Stands in for LTL Planner: records each request and answers with the configured status.</summary>
 public sealed class FakeLtl : HttpMessageHandler
 {
-    public List<(string Path, string Body, string Signature)> Requests { get; } = [];
+    public List<(string Path, string Body, string Signature, string Timestamp)> Requests { get; } = [];
     public System.Net.HttpStatusCode Status { get; set; } = System.Net.HttpStatusCode.OK;
 
     public void Reset() { Requests.Clear(); Status = System.Net.HttpStatusCode.OK; }
@@ -100,7 +100,8 @@ public sealed class FakeLtl : HttpMessageHandler
     {
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct);
         var signature = request.Headers.TryGetValues("X-Portfolio-Signature", out var v) ? v.Single() : "";
-        lock (Requests) Requests.Add((request.RequestUri!.PathAndQuery, body, signature));
+        var timestamp = request.Headers.TryGetValues(Signature.TimestampHeader, out var t) ? t.Single() : "";
+        lock (Requests) Requests.Add((request.RequestUri!.PathAndQuery, body, signature, timestamp));
         var content = request.Method == HttpMethod.Get ? "[]" : "{\"accepted\":true}";
         return new HttpResponseMessage(Status) { Content = new StringContent(content, System.Text.Encoding.UTF8, "application/json") };
     }

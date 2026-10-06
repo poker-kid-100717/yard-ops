@@ -5,7 +5,8 @@
   "compatibility_date": "2026-09-26",
   "workers_dev": true,
   "vars": {
-    "LTL_BASE_URL": ""
+    "LTL_BASE_URL": "",
+    "MIGRATE_ON_STARTUP": "true"
   },
   "assets": {
     "directory": "../web/dist/web/browser",
@@ -30,6 +31,6 @@
     { "tag": "v1", "new_sqlite_classes": ["YardApi"] }
   ],
   "secrets": { "required": ["YARD_LTL_SIGNING_KEY"] },
-  "triggers": { "crons": ["29 8 * * *", "7 * * * *"] },
+  "triggers": { "crons": ["29 8 * * *", "7 * * * *", "*/5 14-23 * * MON-FRI"] },
   "observability": { "enabled": true }
 }
