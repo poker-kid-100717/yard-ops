@@ -24,7 +24,7 @@ Rules the API enforces: trailers move Expected → Arrived → At door → Loadi
 
 - a transactional outbox: each event for LTL Planner is written in the same database transaction as the yard change that caused it, then delivered with an HMAC-SHA256 signature and bounded exponential backoff; yard work never waits on LTL
 - the Yard -> LTL v1 contract, unchanged: the same signed payload and header LTL Planner already verifies, and synchronous candidate lookup
-- .NET 10 minimal API with EF Core 10 on PostgreSQL (migrations applied at startup), ProblemDetails validation, and 409s for rule violations
+- .NET 10 minimal API with EF Core 10 on PostgreSQL (migrations applied by the deploy pipeline as the owner; the running app connects as a least-privilege role), ProblemDetails validation, and 409s for rule violations
 - Angular 22 routed app: lazy-loaded pages, signals, one accessible drawer for every form, light and dark themes, tablet and phone layouts
 - public-demo safeguards: per-client write rate limits, body size limits, a daily reset and an hourly outbox pass from Cloudflare cron triggers
 - optional read-only Alvys Trailers Search through an OAuth 2.0 client-credentials adapter
@@ -72,10 +72,24 @@ Repository **secrets**:
 | --- | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | yes | Wrangler deploys |
 | `CLOUDFLARE_ACCOUNT_ID` | yes | Wrangler deploys |
-| `DATABASE_URL` | recommended | PostgreSQL URL, for example a Neon pooled URL ending in `?sslmode=require`. Without it the app runs on a demo database that resets whenever the container restarts. |
-| `DEMO_RESET_TOKEN` | recommended | Any random string. Enables the daily reset of the demo yard (08:29 UTC). |
-| `YARD_LTL_SIGNING_KEY` | recommended | Signs events sent to LTL. Must equal the key in the ltl-planner repo. Generated per deploy when absent. |
+| `DATABASE_URL` | recommended | PostgreSQL URL the running app uses: a Neon **pooled** URL ending in `?sslmode=require`, for a role with data rights only (see below). Without it the app runs on a demo database that resets whenever the container restarts. |
+| `DATABASE_URL_UNPOOLED` | recommended | The owner's **direct** (non-pooled) URL. The deploy applies migrations with it before the new container starts. Without it the app migrates itself on startup (and then needs DDL rights). |
+| `DEMO_RESET_TOKEN` | no | Token for `POST /api/admin/reset-demo`. The demo yard reset nightly at 08:29 UTC; a per-deploy token is generated when unset. |
+| `YARD_LTL_SIGNING_KEY` | recommended | Signs events sent to LTL. Must equal the key in the ltl-planner repo. Signatures cover an `X-Portfolio-Timestamp` header and the body; LTL rejects anything more than five minutes old. Generated per deploy when absent. |
 | `ALVYS_CLIENT_ID` / `ALVYS_CLIENT_SECRET` | no | Live, read-only Alvys mode |
+
+Database roles (Neon or any PostgreSQL): the owner role in `DATABASE_URL_UNPOOLED` owns the schema; the app role in `DATABASE_URL` only reads and writes rows:
+
+```sql
+CREATE ROLE yard_app LOGIN PASSWORD '...';
+GRANT CONNECT ON DATABASE yard TO yard_app;
+GRANT USAGE ON SCHEMA public TO yard_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO yard_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE yard_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO yard_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE yard_owner IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO yard_app;
+```
+
+Cloudflare cron triggers handle the nightly reset, an hourly outbox pass and a keep-warm ping to `/health/ready` every five minutes during weekday business hours (14:00-23:55 UTC), so the first visitor does not wait for a cold container and a suspended database.
 
 Repository **variables** (optional):
 

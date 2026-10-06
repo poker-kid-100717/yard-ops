@@ -117,9 +117,11 @@ public sealed class YardApiTests(ApiFactory factory) : ApiTest(factory)
         var drain = await PostJson("/api/outbox/drain", new { }, 200);
         Assert.Equal(1, drain.GetProperty("delivered").GetInt32());
 
-        var (path, body, signature) = Assert.Single(Factory.Ltl.Requests);
+        var (path, body, signature, timestamp) = Assert.Single(Factory.Ltl.Requests);
         Assert.Equal("/api/integrations/v1/yard/events", path);
-        Assert.Equal(Signature.Create(body, ApiFactory.SigningKey), signature);
+        var seconds = long.Parse(timestamp, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.InRange(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - seconds, 0, 60);
+        Assert.Equal(Signature.CreateTimestamped(seconds, body, ApiFactory.SigningKey), signature);
         var payload = JsonDocument.Parse(body).RootElement;
         Assert.Equal(["eventId", "eventType", "trailerNumber", "occurredAt", "details", "schemaVersion"], payload.EnumerateObject().Select(p => p.Name));
         Assert.Equal("TrailerGateOut", payload.GetProperty("eventType").GetString());
